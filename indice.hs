@@ -1,18 +1,32 @@
 import System.IO
+import Data.List
 
-numLines :: [String] -> [(Int,String)]
-numLines' :: [String] -> Int -> [(Int,String)]
+type Word' = String
+type Line = String
+type Doc = String
 
-menor :: [(Int, String)] -> (Int, String)
+data Tree = Node Word' [Int] Tree Tree | Leaf deriving Show
 
-almalgamate' :: String -> [(Int,String)] -> [(Int,String)]
-tuplaLista :: [(Int,String)] -> ([Int], String)
-junta :: [(Int, String)] -> [([Int], String)]
-
-xoxo' :: ([Int], String) -> ([Int], String)
-juntaTudo :: [([Int], String)] -> [([Int], String)]
-
+numLines :: [Line] -> [(Int,Line)]
+numLines' :: [Line] -> Int -> [(Int,Line)]
 -- ***********************************************************
+allNumWords :: [(Int,Line)] -> [(Int,Word')]
+allNumWords' :: (Int, [Word']) -> [(Int, Word')]
+-- ***********************************************************
+insOrd :: Int -> [Int] -> [Int]
+-- ***********************************************************
+ocorrenciaElem :: Int -> [Int] -> Bool
+insArvore :: (Word', Int) -> Tree -> Tree
+-- ***********************************************************
+inverte :: [(Int,Word')] -> [(Word', Int)]
+mIndexTree :: Int -> [(Word', Int)] -> Tree -> Tree
+mIndexTree' :: Doc -> Tree
+-- ***********************************************************
+impArvore :: Tree -> IO ()
+-- ***********************************************************
+main :: IO ()
+
+
 
 numLines (x:xs) = numLines' (x:xs) 1
 numLines' [] _ = []
@@ -26,70 +40,49 @@ allNumWords ((l,y:ys):xs) = allNumWords' (l, words (y:ys)) ++ allNumWords (xs)
 allNumWords' (_ , []) = [] 
 allNumWords' (l , y:ys) = (l, y) : allNumWords' (l, ys)
 
-segundo (y, z) = z
-primeiro (y, z) = y
+-- ***********************************************************
 
-menor [(n, x)] = (n, x)
-menor ((n, x):ys) = if x <= segundo (ns, xs) then (n, x) else menor ys
-  where
-    (ns, xs) = menor ys
-
-removerElem _ [] = []
-removerElem n ((x, y):xys) | n /= y = (x, y): removerElem n (xys)
-                           | otherwise = xys
-
-ordenar [] = []
-ordenar ((x, y):xys) = o: ordenar (removerElem (segundo o) ((x, y):xys))
-    where 
-        o = menor ((x, y):xys)
-
-sortLs ((x, y):xys) = ordenar ((x, y):xys)
+insOrd e [] = [e]
+insOrd e (x:xs) = if e < x then e:x:xs else x:insOrd e xs
 
 -- ***********************************************************
 
-proximo _ [(x, y)] = (0, y) 
-proximo cont ((x, y):xys) = if cont == 0 then proximo (cont+1) xys else (x, y)
+ocorrenciaElem _ [] = False
+ocorrenciaElem n (x:xs) | n == x = True
+                        | otherwise = ocorrenciaElem n xs
 
-almalgamate' _ [] = []
-almalgamate' p ((n, x):ys) = if (x == p) then (n, x) : almalgamate' p ys else almalgamate' p ys
-    where
-        ns = primeiro(proximo 0 ((n, x):ys)) 
-
-tuplaLista [(x, y)] = ([x], y)
-tuplaLista ((x,y):xys) = (x:xs, y)
-  where
-    (xs, y) = tuplaLista xys
-
-elemOco _ [] = []
-elemOco l ((x,y):xys) = if l == y then elemOco l xys else (x,y):elemOco l xys
-
-junta [] = []
-junta ((x,y):xys) = (tuplaLista(almalgamate' y ((x,y):xys))) : (junta(elemOco y ((x,y):xys)))
+insArvore (p, l) Leaf = Node p [l] Leaf Leaf
+insArvore (p, l) (Node p' is esq dir) | p == p' && ocorrenciaElem l is == False = Node p' (insOrd l is) esq dir
+                                      | p == p' && ocorrenciaElem l is == True = Node p' is esq dir
+                                      | p < p' = Node p' is (insArvore (p, l) esq) dir
+                                      | otherwise = Node p' is esq (insArvore (p, l) dir)
 
 -- ***********************************************************
 
-xixi _ _ [] = []
-xixi cont n (x:xs) = if n == x then (if cont > 0 then x: xixi (cont-1) n xs else xixi cont n xs) else x: xixi cont n xs
+inverte [] = []
+inverte ((l,p):cauda) = (p,l) : inverte cauda
 
-xoxo y (x:xs) = (xs, y)
+mIndexTree _ [(p,l)] tree = insArvore (p, l) (tree)
+mIndexTree n ((p,l):cauda) tree | n == 0 = mIndexTree (n+1) (cauda) (Node p [l] Leaf Leaf)
+                                | otherwise = mIndexTree n (cauda) (insArvore (p, l) (tree))         
 
-listaSR ([], y) = []
-listaSR ((x:xs), y) = x:listaSR (xoxo y (xixi 1 x (x:xs)))
-
-xoxo' ((x:xs),y) = ((listaSR((x:xs),y)),y) 
-
-elemOco' _ [] = []
-elemOco' l (((x:xs),y):xys) = if l == y then elemOco l xys else ((x:xs),y) : elemOco' l xys
-
-juntaTudo [] = []
-juntaTudo (((x:xs),y):xys) = (xoxo' ((x:xs),y)) : (juntaTudo(elemOco' y (((x:xs),y):xys)))
+mIndexTree' txt = (mIndexTree 0 (inverte(allNumWords(numLines(lines txt)))) Leaf)
 
 -- ***********************************************************
 
-makeIndex txt = (juntaTudo(junta(sortLs(allNumWords (numLines (lines txt))))))
+impArvore Leaf = putStr "\n"
+impArvore (Node p is esq dir) = do impArvore esq
+                                   putStr p
+                                   putStr "-"
+                                   print is
+                                   putStr "\n"
+                                   impArvore dir
+
+-- ***********************************************************
 
 main = do putStr "Arquivo:"
           hFlush stdout
           n <- getLine
           txt <- readFile n
-          print (makeIndex(txt))
+          let x = mIndexTree' (txt)
+          impArvore x
